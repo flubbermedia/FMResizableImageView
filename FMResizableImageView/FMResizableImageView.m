@@ -1,9 +1,29 @@
 //
-//  FMResizerView.m
-//  Demo
+//  FMResizableImageView.m
 //
-//  Created by Andrea Ottolina on 19/09/2012.
-//  Copyright (c) 2012 Flubber Media Ltd. All rights reserved.
+//  Created by Maurizio Cremaschi and Andrea Ottolina on 19/09/2012.
+//  Copyright 2012 Flubber Media Ltd.
+//
+//  Distributed under the permissive zlib License
+//  Get the latest version from https://github.com/flubbermedia/FMResizableImageView
+//
+//  This software is provided 'as-is', without any express or implied
+//  warranty.  In no event will the authors be held liable for any damages
+//  arising from the use of this software.
+//
+//  Permission is granted to anyone to use this software for any purpose,
+//  including commercial applications, and to alter it and redistribute it
+//  freely, subject to the following restrictions:
+//
+//  1. The origin of this software must not be misrepresented; you must not
+//  claim that you wrote the original software. If you use this software
+//  in a product, an acknowledgment in the product documentation would be
+//  appreciated but is not required.
+//
+//  2. Altered source versions must be plainly marked as such, and must not be
+//  misrepresented as being the original software.
+//
+//  3. This notice may not be removed or altered from any source distribution.
 //
 
 #import "FMResizableImageView.h"
@@ -107,12 +127,12 @@
 		CGPoint translation = [gesture translationInView:gesture.view.superview];
 		CGPoint originPoint = CGPointApplyAffineTransform(currentPoint, CGAffineTransformMakeTranslation(-translation.x, -translation.y));
 		
-		CGFloat originalDistance = CGPointDistanceBetweenPoints(center, originPoint);
-		CGFloat currentDistance = CGPointDistanceBetweenPoints(center, currentPoint);
+		CGFloat originalDistance = _CGPointDistanceBetweenPoints(center, originPoint);
+		CGFloat currentDistance = _CGPointDistanceBetweenPoints(center, currentPoint);
 		CGFloat scale = currentDistance / originalDistance;
 		
-		CGFloat originalRotation = CGPointAngleBetweenPoints(center, originPoint);
-		CGFloat currentRotation = CGPointAngleBetweenPoints(center, currentPoint);
+		CGFloat originalRotation = _CGPointAngleBetweenPoints(center, originPoint);
+		CGFloat currentRotation = _CGPointAngleBetweenPoints(center, currentPoint);
 		CGFloat rotation = currentRotation - originalRotation;
 		
 		CGAffineTransform finalTransform = _savedTransform;
@@ -161,14 +181,14 @@
 
 #pragma mark - Math
 
-CGFloat CGPointDistanceBetweenPoints(CGPoint first, CGPoint second)
+CGFloat _CGPointDistanceBetweenPoints(CGPoint first, CGPoint second)
 {
 	CGFloat dx = second.x - first.x;
 	CGFloat dy = second.y - first.y;
 	return sqrtf(dx * dx + dy * dy);
 }
 
-CGFloat CGPointAngleBetweenPoints(CGPoint first, CGPoint second)
+CGFloat _CGPointAngleBetweenPoints(CGPoint first, CGPoint second)
 {
 	CGFloat dx = second.x - first.x;
 	CGFloat dy = second.y - first.y;
