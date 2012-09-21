@@ -39,6 +39,8 @@
 @property (nonatomic, assign) CGAffineTransform rotationTransform;
 @property (nonatomic, assign) CGAffineTransform scaleTransform;
 
+@property (nonatomic, assign) CGPoint savedAnchorPoint;
+
 @end
 
 @implementation FMResizableImageView
@@ -117,6 +119,9 @@
 	if (gesture.state == UIGestureRecognizerStateBegan)
 	{
 		_savedTransform = gesture.view.superview.transform;
+        
+        _savedAnchorPoint = self.layer.anchorPoint;
+        [self setAnchorPoint:CGPointMake(0.5, 0.5) forView:self];
 	}
 	
 	if (gesture.state == UIGestureRecognizerStateChanged)
@@ -155,6 +160,11 @@
 		_closeButton.transform = CGAffineTransformInvert(finalTransform);
 		_rotateScaleButton.transform = CGAffineTransformInvert(finalTransform);
 	}
+    
+    if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled)
+    {
+        [self setAnchorPoint:_savedAnchorPoint forView:self];
+    }
 }
 
 - (void)close:(UITapGestureRecognizer *)gesture
@@ -177,6 +187,28 @@
         }
     }
     return [super hitTest:point withEvent:event];
+}
+
+#pragma mark - Utilities
+
+-(void)setAnchorPoint:(CGPoint)anchorPoint forView:(UIView *)view
+{
+    CGPoint newPoint = CGPointMake(view.bounds.size.width * anchorPoint.x, view.bounds.size.height * anchorPoint.y);
+    CGPoint oldPoint = CGPointMake(view.bounds.size.width * view.layer.anchorPoint.x, view.bounds.size.height * view.layer.anchorPoint.y);
+    
+    newPoint = CGPointApplyAffineTransform(newPoint, view.transform);
+    oldPoint = CGPointApplyAffineTransform(oldPoint, view.transform);
+    
+    CGPoint position = view.layer.position;
+    
+    position.x -= oldPoint.x;
+    position.x += newPoint.x;
+    
+    position.y -= oldPoint.y;
+    position.y += newPoint.y;
+    
+    view.layer.position = position;
+    view.layer.anchorPoint = anchorPoint;
 }
 
 #pragma mark - Math
