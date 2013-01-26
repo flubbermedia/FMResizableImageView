@@ -31,4 +31,11 @@
 
 @interface FMResizableImageView : UIImageView <UIGestureRecognizerDelegate>
 
+@property (nonatomic, assign) BOOL editingEnabled;
+@property (nonatomic, assign) CGFloat controlsScaleCorrection;
+@property (copy) void (^deletionHandler)(FMResizableImageView *item);
+
+@property (nonatomic, strong) UIImage *rotateScaleImage;
+@property (nonatomic, strong) UIImage *deleteImage;
+
 @end
