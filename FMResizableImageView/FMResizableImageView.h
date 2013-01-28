@@ -29,13 +29,14 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 
-@interface FMResizableImageView : UIImageView <UIGestureRecognizerDelegate>
+@interface FMResizableImageView : UIView <UIGestureRecognizerDelegate>
 
 @property (nonatomic, assign) BOOL editingEnabled;
 @property (nonatomic, assign) CGFloat controlsScaleCorrection;
 @property (copy) void (^deletionHandler)(FMResizableImageView *item);
 
-@property (nonatomic, strong) UIImage *rotateScaleImage;
-@property (nonatomic, strong) UIImage *deleteImage;
+@property (nonatomic, strong) UIImageView *imageView;
+@property (nonatomic, strong) UIImageView *rotateControlImageView;
+@property (nonatomic, strong) UIImageView *deleteControlImageView;
 
 @end

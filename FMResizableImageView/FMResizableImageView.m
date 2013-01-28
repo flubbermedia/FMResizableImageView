@@ -30,10 +30,6 @@
 
 @interface FMResizableImageView()
 
-@property (nonatomic, strong) UIImageView *deleteControl;
-@property (nonatomic, strong) UIImageView *rotateScaleControl;
-@property (nonatomic, strong) CALayer *borderLayer;
-
 @property (nonatomic, assign) CGAffineTransform finalTransform;
 @property (nonatomic, assign) CGAffineTransform savedTransform;
 
@@ -48,32 +44,43 @@
 
 @implementation FMResizableImageView
 
-- (void)awakeFromNib
-{
+- (void)setup
+{	
 	_editingEnabled = NO;
 	_controlsScaleCorrection = 1;
 	_deletionHandler = nil;
 	
 	_finalTransform = self.transform;
 	
-	self.userInteractionEnabled = YES;
+	_imageView = [UIImageView new];
+	_rotateControlImageView = [UIImageView new];
+	_deleteControlImageView = [UIImageView new];
 	
-	_borderLayer = [CALayer layer];
-	_borderLayer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.5].CGColor;
-	_borderLayer.borderWidth = 2.;
-	_borderLayer.frame = self.layer.bounds;
-	_borderLayer.hidden = !_editingEnabled;
-	[self.layer addSublayer:_borderLayer];
+	[_imageView addObserver:self forKeyPath:@"image" options:NSKeyValueObservingOptionNew context:@"imageView.image"];
+	[_rotateControlImageView addObserver:self forKeyPath:@"image" options:NSKeyValueObservingOptionNew context:@"rotateControlImageView.image"];
+	[_deleteControlImageView addObserver:self forKeyPath:@"image" options:NSKeyValueObservingOptionNew context:@"deleteControlImageView.image"];
 	
-	_rotateScaleControl = [[UIImageView alloc] init];
-	_rotateScaleControl.autoresizingMask = UIViewAutoresizingFlexibleTopMargin|UIViewAutoresizingFlexibleLeftMargin;
-	_rotateScaleControl.hidden = !_editingEnabled;
-	[self addSubview:_rotateScaleControl];
+	_imageView.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.5].CGColor;
+	_imageView.layer.borderWidth = 2.;
 	
-	_deleteControl = [[UIImageView alloc] init];
-	_deleteControl.autoresizingMask = UIViewAutoresizingFlexibleBottomMargin|UIViewAutoresizingFlexibleRightMargin;
-	_deleteControl.hidden = !_editingEnabled;
-	[self addSubview:_deleteControl];
+	
+	
+//	_borderLayer = [CALayer layer];
+//	_borderLayer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.5].CGColor;
+//	_borderLayer.borderWidth = 2.;
+//	_borderLayer.frame = self.layer.bounds;
+//	_borderLayer.hidden = !_editingEnabled;
+//	[self.layer addSublayer:_borderLayer];
+//	
+//	_rotateScaleControl = [[UIImageView alloc] init];
+//	_rotateScaleControl.autoresizingMask = UIViewAutoresizingFlexibleTopMargin|UIViewAutoresizingFlexibleLeftMargin;
+//	_rotateScaleControl.hidden = !_editingEnabled;
+//	[self addSubview:_rotateScaleControl];
+//	
+//	_deleteControl = [[UIImageView alloc] init];
+//	_deleteControl.autoresizingMask = UIViewAutoresizingFlexibleBottomMargin|UIViewAutoresizingFlexibleRightMargin;
+//	_deleteControl.hidden = !_editingEnabled;
+//	[self addSubview:_deleteControl];
 	
 	_tapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tap:)];
 	[_tapRecognizer setDelegate:self];
@@ -99,12 +106,19 @@
 	
 }
 
-- (id)initWithImage:(UIImage *)image
+- (void)dealloc
 {
-	self = [super initWithImage:image];
+    [_imageView removeObserver:self forKeyPath:@"image" context:@"imageView.image"];
+	[_rotateControlImageView removeObserver:self forKeyPath:@"image" context:@"rotateControlImageView.image"];
+	[_deleteControlImageView removeObserver:self forKeyPath:@"image" context:@"deleteControlImageView.image"];
+}
+
+- (id)initWithCoder:(NSCoder *)aDecoder
+{
+	self = [super initWithCoder:aDecoder];
 	if (self)
 	{
-		[self awakeFromNib];
+		[self setup];
 	}
 	return self;
 }
@@ -114,51 +128,68 @@
 	self = [super initWithFrame:frame];
 	if (self)
 	{
-		[self awakeFromNib];
+		[self setup];
 	}
 	return self;
 }
 
+#pragma mark - Image Updates
+
+- (void)updateImageViewImage
+{
+	[_imageView sizeToFit];
+	CGPoint savedCenter = self.center;
+	self.frame = _imageView.frame;
+	
+	_imageView.frame = CGRectOffset(_imageView.frame, - CGRectGetMidX(_imageView.frame), - CGRectGetMidY(_imageView.frame));
+	self.center = savedCenter;
+	
+//	CGPoint savedCenter = self.center;
+//	CGRect newFrame = CGRectZero;
+//	newFrame.size = newFrameSize;
+//	self.frame
+}
+
 #pragma mark - Setter/Getter
 
-- (void)setEditingEnabled:(BOOL)enabled
-{
-	_editingEnabled = enabled;
-	_borderLayer.hidden = !_editingEnabled;
-	_rotateScaleControl.hidden = !_editingEnabled;
-	_deleteControl.hidden = !_editingEnabled;
-	
-	_rotateScaleRecognizer.enabled = _editingEnabled;
-	_deleteRecognizer.enabled = _editingEnabled;
-}
-
-- (void)setControlsScaleCorrection:(CGFloat)correction
-{
-	_controlsScaleCorrection = correction;
-	[self updateControls];
-}
-
-- (void)setDeleteImage:(UIImage *)deleteImage
-{
-	_deleteControl.image = deleteImage;
-	[_deleteControl sizeToFit];
-	_deleteControl.center = CGPointZero;
-}
-
-- (void)setRotateScaleImage:(UIImage *)rotateScaleImage
-{
-	_rotateScaleControl.image = rotateScaleImage;
-	[_rotateScaleControl sizeToFit];
-	_rotateScaleControl.center = CGPointMake(CGRectGetMaxX(self.bounds), CGRectGetMaxY(self.bounds));
-}
+//- (void)setEditingEnabled:(BOOL)enabled
+//{
+//	_editingEnabled = enabled;
+//	_borderLayer.hidden = !_editingEnabled;
+//	_rotateScaleControl.hidden = !_editingEnabled;
+//	_deleteControl.hidden = !_editingEnabled;
+//	
+//	_rotateScaleRecognizer.enabled = _editingEnabled;
+//	_deleteRecognizer.enabled = _editingEnabled;
+//}
+//
+//- (void)setControlsScaleCorrection:(CGFloat)correction
+//{
+//	_controlsScaleCorrection = correction;
+//	[self updateControls];
+//}
+//
+//- (void)setDeleteImage:(UIImage *)deleteImage
+//{
+//	_deleteControl.image = deleteImage;
+//	[_deleteControl sizeToFit];
+//	_deleteControl.center = CGPointZero;
+//}
+//
+//- (void)setRotateScaleImage:(UIImage *)rotateScaleImage
+//{
+//	_rotateScaleControl.image = rotateScaleImage;
+//	[_rotateScaleControl sizeToFit];
+//	_rotateScaleControl.center = CGPointMake(CGRectGetMaxX(self.bounds), CGRectGetMaxY(self.bounds));
+//}
 
 #pragma mark - Private methods
 
 - (void)updateControls
 {
-	CGAffineTransform controlsTransform = CGAffineTransformScale(CGAffineTransformInvert(_finalTransform), 1.0 / _controlsScaleCorrection, 1.0 / _controlsScaleCorrection);
-	_deleteControl.transform = controlsTransform;
-	_rotateScaleControl.transform = controlsTransform;
+//	CGAffineTransform controlsTransform = CGAffineTransformScale(CGAffineTransformInvert(_finalTransform), 1.0 / _controlsScaleCorrection, 1.0 / _controlsScaleCorrection);
+//	_deleteControl.transform = controlsTransform;
+//	_rotateScaleControl.transform = controlsTransform;
 }
 
 #pragma mark - Gestures
@@ -251,27 +282,27 @@
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
 {
 	
-	CGPoint pointInView = [touch locationInView:gestureRecognizer.view];
-	
-	if (gestureRecognizer.enabled && gestureRecognizer == _rotateScaleRecognizer && CGRectContainsPoint(_rotateScaleControl.frame, pointInView))
-	{
-		return YES;
-	}
-	
-	if (gestureRecognizer.enabled && gestureRecognizer == _deleteRecognizer && CGRectContainsPoint(_deleteControl.frame, pointInView))
-	{
-		return YES;
-	}
-	
-	if (gestureRecognizer.enabled && gestureRecognizer == _tapRecognizer && CGRectContainsPoint(self.bounds, pointInView))
-	{
-		return YES;
-	}
-
-	if (gestureRecognizer.enabled && gestureRecognizer == _moveRecognizer && CGRectContainsPoint(self.bounds, pointInView))
-	{
-		return YES;
-	}
+//	CGPoint pointInView = [touch locationInView:gestureRecognizer.view];
+//	
+//	if (gestureRecognizer.enabled && gestureRecognizer == _rotateScaleRecognizer && CGRectContainsPoint(_rotateScaleControl.frame, pointInView))
+//	{
+//		return YES;
+//	}
+//	
+//	if (gestureRecognizer.enabled && gestureRecognizer == _deleteRecognizer && CGRectContainsPoint(_deleteControl.frame, pointInView))
+//	{
+//		return YES;
+//	}
+//	
+//	if (gestureRecognizer.enabled && gestureRecognizer == _tapRecognizer && CGRectContainsPoint(self.bounds, pointInView))
+//	{
+//		return YES;
+//	}
+//
+//	if (gestureRecognizer.enabled && gestureRecognizer == _moveRecognizer && CGRectContainsPoint(self.bounds, pointInView))
+//	{
+//		return YES;
+//	}
 	
 	return NO;
 }
@@ -312,6 +343,24 @@
 	
 	view.layer.position = position;
 	view.layer.anchorPoint = anchorPoint;
+}
+
+#pragma mark - KVO
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
+{
+    if ([(__bridge NSString *)context isEqualToString:@"imageView.image"] && object == _imageView)
+    {
+        [self updateImageViewImage];
+    }
+	if ([(__bridge NSString *)context isEqualToString:@"rotateControlImageView.image"] && object == _rotateControlImageView)
+    {
+        //[self update];
+    }
+	if ([(__bridge NSString *)context isEqualToString:@"deleteControlImageView.image"] && object == _deleteControlImageView)
+    {
+        //[self update];
+    }
 }
 
 #pragma mark - Math
