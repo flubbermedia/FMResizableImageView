@@ -121,6 +121,13 @@
 
 #pragma mark - Setter/Getter
 
+- (void)setTransform:(CGAffineTransform)transform
+{
+	[super setTransform:transform];
+	_finalTransform = transform;
+	[self updateControls];
+}
+
 - (void)setEditingEnabled:(BOOL)enabled
 {
 	_editingEnabled = enabled;
