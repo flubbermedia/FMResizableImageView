@@ -27,17 +27,20 @@
 //
 
 #import "FMResizableImageView.h"
+#import <QuartzCore/QuartzCore.h>
 
 @interface FMResizableImageView()
 
+@property (nonatomic, strong) CALayer *borderLayer;
 @property (nonatomic, strong) UIImageView *deleteControl;
 @property (nonatomic, strong) UIImageView *rotateScaleControl;
-@property (nonatomic, strong) CALayer *borderLayer;
 
-@property (nonatomic, assign) CGAffineTransform finalTransform;
-@property (nonatomic, assign) CGAffineTransform savedTransform;
-
+@property (nonatomic, assign) CGPoint savedViewCenter;
+@property (nonatomic, assign) CGPoint savedTouchPoint;
 @property (nonatomic, assign) CGPoint savedAnchorPoint;
+
+@property (nonatomic, assign) CGAffineTransform currentTransform;
+@property (nonatomic, assign) CGAffineTransform savedTransform;
 
 @property (nonatomic, strong) UITapGestureRecognizer *tapRecognizer;
 @property (nonatomic, strong) UIPanGestureRecognizer *moveRecognizer;
@@ -50,13 +53,14 @@
 
 - (void)awakeFromNib
 {
+	// default settings
+	
 	_editingEnabled = NO;
 	_controlsScaleCorrection = 1;
 	_deletionHandler = nil;
+	_currentTransform = self.transform;
 	
-	_finalTransform = self.transform;
-	
-	self.userInteractionEnabled = YES;
+	// border setup
 	
 	_borderLayer = [CALayer layer];
 	_borderLayer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.5].CGColor;
@@ -65,15 +69,17 @@
 	_borderLayer.hidden = !_editingEnabled;
 	[self.layer addSublayer:_borderLayer];
 	
-	_rotateScaleControl = [[UIImageView alloc] init];
-	_rotateScaleControl.autoresizingMask = UIViewAutoresizingFlexibleTopMargin|UIViewAutoresizingFlexibleLeftMargin;
+	// additional controls
+	
+	_deleteControl = [UIImageView new];
+	_deleteControl.hidden = !_editingEnabled;
+	[self addSubview:_deleteControl];
+	
+	_rotateScaleControl = [UIImageView new];
 	_rotateScaleControl.hidden = !_editingEnabled;
 	[self addSubview:_rotateScaleControl];
 	
-	_deleteControl = [[UIImageView alloc] init];
-	_deleteControl.autoresizingMask = UIViewAutoresizingFlexibleBottomMargin|UIViewAutoresizingFlexibleRightMargin;
-	_deleteControl.hidden = !_editingEnabled;
-	[self addSubview:_deleteControl];
+	// recognizers
 	
 	_tapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tap:)];
 	[_tapRecognizer setDelegate:self];
@@ -81,21 +87,29 @@
 	
 	_moveRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(move:)];
 	[_moveRecognizer setDelegate:self];
-	[_moveRecognizer setMinimumNumberOfTouches:1];
-	[_moveRecognizer setMaximumNumberOfTouches:1];
 	[self addGestureRecognizer:_moveRecognizer];
 	
-	_rotateScaleRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(rotateScale:)];
-	[_rotateScaleRecognizer setEnabled:_editingEnabled];
-	[_rotateScaleRecognizer setDelegate:self];
-	[_rotateScaleRecognizer setMinimumNumberOfTouches:1];
-	[_rotateScaleRecognizer setMaximumNumberOfTouches:1];
-	[self addGestureRecognizer:_rotateScaleRecognizer];
-	
 	_deleteRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(delete:)];
-	[_deleteRecognizer setEnabled:_editingEnabled];
 	[_deleteRecognizer setDelegate:self];
-	[self addGestureRecognizer:_deleteRecognizer];
+	[_deleteRecognizer setEnabled:_editingEnabled];
+	[_deleteControl addGestureRecognizer:_deleteRecognizer];
+	
+	_rotateScaleRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(rotateScale:)];
+	[_rotateScaleRecognizer setDelegate:self];
+	[_rotateScaleRecognizer setEnabled:_editingEnabled];
+	[_rotateScaleControl addGestureRecognizer:_rotateScaleRecognizer];
+	
+	// Enable user interaction
+	
+	self.userInteractionEnabled = YES;
+	_deleteControl.userInteractionEnabled = YES;
+	_rotateScaleControl.userInteractionEnabled = YES;
+	
+	//	Useful for debugging
+	
+	//	self.tag = 1;
+	//	_deleteControl.tag = 2;
+	//	_rotateScaleControl.tag = 3;
 	
 }
 
@@ -124,7 +138,7 @@
 - (void)setTransform:(CGAffineTransform)transform
 {
 	[super setTransform:transform];
-	_finalTransform = transform;
+	_currentTransform = transform;
 	[self updateControls];
 }
 
@@ -163,7 +177,7 @@
 
 - (void)updateControls
 {
-	CGAffineTransform controlsTransform = CGAffineTransformScale(CGAffineTransformInvert(_finalTransform), 1.0 / _controlsScaleCorrection, 1.0 / _controlsScaleCorrection);
+	CGAffineTransform controlsTransform = CGAffineTransformScale(CGAffineTransformInvert(_currentTransform), 1.0 / _controlsScaleCorrection, 1.0 / _controlsScaleCorrection);
 	_deleteControl.transform = controlsTransform;
 	_rotateScaleControl.transform = controlsTransform;
 }
@@ -172,75 +186,65 @@
 
 - (void)tap:(UITapGestureRecognizer *)gesture
 {
-	self.editingEnabled = !_editingEnabled;
+	if (!_editingEnabled)
+	{
+		self.editingEnabled = YES;
+	}
+	else
+	{
+		
+		int orientation;
+		
+		switch (self.image.imageOrientation) {
+			case UIImageOrientationUp:
+				orientation = UIImageOrientationUpMirrored;
+				break;
+			case UIImageOrientationDown:
+				orientation = UIImageOrientationDownMirrored;
+				break;
+			case UIImageOrientationLeft:
+				orientation = UIImageOrientationLeftMirrored;
+				break;
+			case UIImageOrientationRight:
+				orientation = UIImageOrientationRightMirrored;
+				break;
+			case UIImageOrientationUpMirrored:
+				orientation = UIImageOrientationUp;
+				break;
+			case UIImageOrientationDownMirrored:
+				orientation = UIImageOrientationDown;
+				break;
+			case UIImageOrientationLeftMirrored:
+				orientation = UIImageOrientationLeft;
+				break;
+			case UIImageOrientationRightMirrored:
+				orientation = UIImageOrientationRight;
+				break;
+			default:
+				break;
+		}
+		
+		UIImage *flippedImage = [UIImage imageWithCGImage:self.image.CGImage scale:1.0 orientation:orientation];
+		self.image = flippedImage;
+		
+	}
 }
 
 - (void)move:(UIPanGestureRecognizer *)gesture
 {
+	UIView *targetView = self;
+	
 	if (gesture.state == UIGestureRecognizerStateBegan)
 	{
+		_savedViewCenter = targetView.center;
 		if (!_editingEnabled) self.editingEnabled = !_editingEnabled;
 	}
 	
 	if (gesture.state == UIGestureRecognizerStateChanged)
 	{
-		CGPoint translation = [gesture translationInView:gesture.view.superview];
-		gesture.view.center = CGPointMake(gesture.view.center.x + translation.x, gesture.view.center.y + translation.y);
-		[gesture setTranslation:CGPointZero inView:gesture.view.superview];
-	}
-}
-
-- (void)rotateScale:(UIPanGestureRecognizer *)gesture
-{
-	UIView *targetView = gesture.view;
-	
-	if (gesture.state == UIGestureRecognizerStateBegan)
-	{
-		_savedTransform = targetView.transform;
-		
-		_savedAnchorPoint = self.layer.anchorPoint;
-		[self setAnchorPoint:CGPointMake(0.5, 0.5) forView:self];
-	}
-	
-	if (gesture.state == UIGestureRecognizerStateChanged)
-	{
-		CGPoint center = CGPointMake(CGRectGetMidX(targetView.bounds), CGRectGetMidY(targetView.bounds));
-		CGPoint currentPoint = [gesture locationInView:targetView];
-		
-		CGPoint translation = [gesture translationInView:targetView];
-		CGPoint originPoint = CGPointApplyAffineTransform(currentPoint, CGAffineTransformMakeTranslation(-translation.x, -translation.y));
-		
-		CGFloat originalDistance = _CGPointDistanceBetweenPoints(center, originPoint);
-		CGFloat currentDistance = _CGPointDistanceBetweenPoints(center, currentPoint);
-		CGFloat scale = currentDistance / originalDistance;
-		
-		CGFloat originalRotation = _CGPointAngleBetweenPoints(center, originPoint);
-		CGFloat currentRotation = _CGPointAngleBetweenPoints(center, currentPoint);
-		CGFloat rotation = currentRotation - originalRotation;
-		
-		_finalTransform = _savedTransform;
-		_finalTransform = CGAffineTransformScale(_finalTransform, scale, scale);
-		
-		if (_finalTransform.a < 0.5 && _finalTransform.d < 0.5)
-		{
-			_finalTransform.a = 0.5;
-			_finalTransform.d = 0.5;
-		}
-		else if (_finalTransform.a > 2.0 && _finalTransform.d > 2.0)
-		{
-			_finalTransform.a = 2.0;
-			_finalTransform.d = 2.0;
-		}
-		
-		_finalTransform = CGAffineTransformRotate(_finalTransform, rotation);
-		targetView.transform = _finalTransform;
-		
-		[self updateControls];
-	}
-	
-	if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled)
-	{
-		[self setAnchorPoint:_savedAnchorPoint forView:self];
+		CGPoint translation = [gesture translationInView:targetView.superview];
+		CGAffineTransform translationTransform = CGAffineTransformMakeTranslation(translation.x, translation.y);
+		targetView.center = CGPointApplyAffineTransform(_savedViewCenter, translationTransform);
 	}
 }
 
@@ -255,48 +259,75 @@
 	}];
 }
 
+- (void)rotateScale:(UIPanGestureRecognizer *)gesture
+{
+	UIView *targetView = self;
+	
+	if (gesture.state == UIGestureRecognizerStateBegan)
+	{
+		_savedTransform = targetView.transform;
+		_savedViewCenter = self.center;
+		_savedTouchPoint = [gesture locationInView:targetView.superview];
+		_savedAnchorPoint = self.layer.anchorPoint;
+		
+		[self setAnchorPoint:CGPointMake(0.5, 0.5) forView:self];
+	}
+	
+	if (gesture.state == UIGestureRecognizerStateChanged)
+	{
+		CGPoint currentPoint = [gesture locationInView:targetView.superview];
+		
+		float originalDistance = [self distanceFrom:_savedViewCenter to:_savedTouchPoint];
+		float currentDistance = [self distanceFrom:_savedViewCenter to:currentPoint];
+		CGFloat scale = currentDistance / originalDistance;
+		
+		CGFloat originalRotation = [self angleBetween:_savedViewCenter and:_savedTouchPoint];
+		CGFloat currentRotation = [self angleBetween:_savedViewCenter and:currentPoint];
+		CGFloat rotation = currentRotation - originalRotation;
+		
+		_currentTransform = CGAffineTransformIdentity;
+		_currentTransform = CGAffineTransformScale(_currentTransform, scale, scale);
+		
+		_currentTransform = CGAffineTransformRotate(_currentTransform, rotation);
+		_currentTransform = CGAffineTransformConcat(_savedTransform, _currentTransform);
+		targetView.transform = _currentTransform;
+		
+		[self updateControls];
+	}
+	
+	if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled)
+	{
+		[self setAnchorPoint:_savedAnchorPoint forView:self];
+	}
+}
+
+#pragma mark - Gestures Delegate
+
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
+{
+	return (gestureRecognizer == _tapRecognizer ||
+			gestureRecognizer == _moveRecognizer ||
+			gestureRecognizer == _rotateScaleRecognizer ||
+			gestureRecognizer == _deleteRecognizer);
+}
+
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
 {
-	
-	CGPoint pointInView = [touch locationInView:gestureRecognizer.view];
-	
-	if (gestureRecognizer.enabled && gestureRecognizer == _rotateScaleRecognizer && CGRectContainsPoint(_rotateScaleControl.frame, pointInView))
-	{
-		return YES;
-	}
-	
-	if (gestureRecognizer.enabled && gestureRecognizer == _deleteRecognizer && CGRectContainsPoint(_deleteControl.frame, pointInView))
-	{
-		return YES;
-	}
-	
-	if (gestureRecognizer.enabled && gestureRecognizer == _tapRecognizer && CGRectContainsPoint(self.bounds, pointInView))
-	{
-		return YES;
-	}
-
-	if (gestureRecognizer.enabled && gestureRecognizer == _moveRecognizer && CGRectContainsPoint(self.bounds, pointInView))
-	{
-		return YES;
-	}
-	
-	return NO;
+	return (touch.view == gestureRecognizer.view);
 }
 
 #pragma mark - Touch
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
 {
-	UIView *returnView = [super hitTest:point withEvent:event];
 	for (UIView *subview in self.subviews)
 	{
         if (!subview.hidden && CGRectContainsPoint(subview.frame, point))
 		{
-			returnView = subview;
-            break;
+			return subview;
         }
     }
-    return returnView;
+    return [super hitTest:point withEvent:event];
 }
 
 #pragma mark - Utilities
@@ -323,17 +354,17 @@
 
 #pragma mark - Math
 
-CGFloat _CGPointDistanceBetweenPoints(CGPoint first, CGPoint second)
+- (CGFloat)distanceFrom:(CGPoint)point1 to:(CGPoint)point2
 {
-	CGFloat dx = second.x - first.x;
-	CGFloat dy = second.y - first.y;
+	CGFloat dx = (point2.x - point1.x);
+	CGFloat dy = (point2.y - point1.y);
 	return sqrtf(dx * dx + dy * dy);
 }
 
-CGFloat _CGPointAngleBetweenPoints(CGPoint first, CGPoint second)
+- (CGFloat)angleBetween:(CGPoint)point1 and:(CGPoint)point2
 {
-	CGFloat dx = second.x - first.x;
-	CGFloat dy = second.y - first.y;
+	CGFloat dx = point2.x - point1.x;
+	CGFloat dy = point2.y - point1.y;
 	return atan2f(dy, dx);
 }
 
