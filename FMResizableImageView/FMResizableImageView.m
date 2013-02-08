@@ -29,6 +29,8 @@
 #import "FMResizableImageView.h"
 #import <QuartzCore/QuartzCore.h>
 
+static CGFloat const kBorderWidth = 2.0f;
+
 @interface FMResizableImageView()
 
 @property (nonatomic, strong) CALayer *borderLayer;
@@ -64,7 +66,7 @@
 	
 	_borderLayer = [CALayer layer];
 	_borderLayer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.5].CGColor;
-	_borderLayer.borderWidth = 2.;
+	_borderLayer.borderWidth = kBorderWidth;
 	_borderLayer.frame = self.layer.bounds;
 	_borderLayer.hidden = !_editingEnabled;
 	[self.layer addSublayer:_borderLayer];
@@ -180,6 +182,7 @@
 	CGAffineTransform controlsTransform = CGAffineTransformScale(CGAffineTransformInvert(_currentTransform), 1.0 / _controlsScaleCorrection, 1.0 / _controlsScaleCorrection);
 	_deleteControl.transform = controlsTransform;
 	_rotateScaleControl.transform = controlsTransform;
+	_borderLayer.borderWidth =  kBorderWidth * sqrt(controlsTransform.b * controlsTransform.b + controlsTransform.d * controlsTransform.d);
 }
 
 #pragma mark - Gestures
