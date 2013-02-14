@@ -175,6 +175,18 @@ static CGFloat const kBorderWidth = 2.0f;
 	_rotateScaleControl.center = CGPointMake(CGRectGetMaxX(self.bounds), CGRectGetMaxY(self.bounds));
 }
 
+#pragma mark - Public methods
+
+- (void)flashBorder
+{
+	_borderLayer.hidden = NO;
+	double delayInSeconds = 0.3;
+	dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
+	dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
+		_borderLayer.hidden = YES;
+	});
+}
+
 #pragma mark - Private methods
 
 - (void)updateControls

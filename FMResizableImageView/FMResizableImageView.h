@@ -37,4 +37,6 @@
 @property (nonatomic, strong) UIImage *rotateScaleImage;
 @property (nonatomic, strong) UIImage *deleteImage;
 
+- (void)flashBorder;
+
 @end
