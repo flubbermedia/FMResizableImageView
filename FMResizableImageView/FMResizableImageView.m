@@ -269,8 +269,8 @@ static CGFloat const kBorderWidth = 2.0f;
 		self.alpha = 0.;
 	} completion:^(BOOL finished) {
 		[self removeFromSuperview];
-		if (_deletionHandler)
-			_deletionHandler(self);
+        if (self->_deletionHandler)
+            self->_deletionHandler(self);
 	}];
 }
 
